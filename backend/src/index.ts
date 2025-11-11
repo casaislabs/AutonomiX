@@ -115,7 +115,10 @@ async function setupX402ForLocalEndpoints(app: express.Express): Promise<void> {
 async function autoRegisterAgentEndpoints(app: express.Express): Promise<void> {
   const distEndpointsDir = path.join(__dirname, 'routes', 'endpoint');
   const srcEndpointsDir = path.join(__dirname, '..', 'src', 'routes', 'endpoint');
-  const candidateDirs = [distEndpointsDir, srcEndpointsDir];
+  // In production (running compiled code from dist), avoid importing TS from src
+  // to prevent "Unknown file extension .ts" noise in logs.
+  const isProduction = process.env.NODE_ENV === 'production' || path.basename(__dirname) === 'dist';
+  const candidateDirs = isProduction ? [distEndpointsDir] : [distEndpointsDir, srcEndpointsDir];
   let registered = 0;
   for (const dir of candidateDirs) {
     try {
@@ -123,7 +126,10 @@ async function autoRegisterAgentEndpoints(app: express.Express): Promise<void> {
       const entries = fs.readdirSync(dir, { withFileTypes: true });
       for (const e of entries) {
         if (!e.isFile()) continue;
-        const match = e.name.match(/^agent(\d+)\.[tj]s$/i);
+        // In production, only consider compiled .js files; in dev accept .ts/.js
+        const match = isProduction
+          ? e.name.match(/^agent(\d+)\.js$/i)
+          : e.name.match(/^agent(\d+)\.[tj]s$/i);
         if (!match) continue;
         const absPath = path.join(dir, e.name);
         const fileUrl = pathToFileURL(absPath).href;
