@@ -34,8 +34,8 @@ export function applySecurity(app: Express): Express {
   app.use('/metadata', publicCors)
   // Private routes (with credentials)
   app.use('/api', privateCors)
-  // Explicit preflight handling
-  app.options('/api/*', privateCors)
+  // Explicit preflight handling (wildcard must be named for path-to-regexp)
+  app.options('/api/:splat*', privateCors)
 
   // Helmet: enable core protections; add HSTS/CSP in production
   app.use(
