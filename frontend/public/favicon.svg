@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" aria-labelledby="title" role="img">
+  <title>AutonomiX Favicon</title>
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0ea5e9"/>
+      <stop offset="60%" stop-color="#60a5fa"/>
+      <stop offset="100%" stop-color="#22c55e"/>
+    </linearGradient>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#0b1220"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="12" fill="url(#bg)"/>
+  <!-- Simplified AX monogram for small size -->
+  <path d="M16 46 L24 18 H28 L36 46 H32 L30 40 H22 L20 46 Z" fill="none" stroke="url(#g)" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M34 20 L48 46 M48 20 L34 46" fill="none" stroke="url(#g)" stroke-width="4" stroke-linecap="round"/>
+</svg>
