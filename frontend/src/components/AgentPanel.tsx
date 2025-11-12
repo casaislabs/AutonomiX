@@ -19,8 +19,15 @@ export function AgentPanel() {
   
   
 
-  // Backend base URL: use window.__BACKEND_URL__ if present, otherwise localhost:3000
-  const apiBase = useMemo(() => (window as any)?.__BACKEND_URL__ || 'http://localhost:3000', [])
+  // Backend base URL resolution order:
+  // 1) Vite env var (VITE_BACKEND_URL) — production on Vercel
+  // 2) window.__BACKEND_URL__ — optional global injection
+  // 3) localhost fallback for local dev
+  const apiBaseEnv = (import.meta as any)?.env?.VITE_BACKEND_URL as string | undefined
+  const apiBase = useMemo(
+    () => apiBaseEnv || (window as any)?.__BACKEND_URL__ || 'http://localhost:3000',
+    [apiBaseEnv]
+  )
 
   // Agents list state
   const [agents, setAgents] = useState<Array<{ id: number; endpoint: string; metadataURI: string; reputation: string; name?: string; description?: string; image?: string; imageDataURI?: string; attributes?: any[] }>>([])
