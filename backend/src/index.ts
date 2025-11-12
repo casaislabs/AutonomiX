@@ -9,6 +9,63 @@ import { registerAgentRoutes } from './routes/agents.js';
 import { registerMetadataRoutes } from './routes/metadata.js';
 import { paymentMiddleware } from 'x402-express';
 import { X402_RECEIVER_ADDRESS, X402_NETWORK, X402_PRICE_USD, X402_FACILITATOR_URL } from './config.js';
+// Explicit dev-time registration of agent endpoints to avoid dynamic import issues
+import { registerAgent1Endpoint } from './routes/endpoint/agent1.js';
+import { registerAgent2Endpoint } from './routes/endpoint/agent2.js';
+import { registerAgent3Endpoint } from './routes/endpoint/agent3.js';
+
+// Hardening: ensure Node's global fetch uses identity encoding for outbound requests
+// This mitigates rare proxies that return mismatched Content-Length when compressing.
+const originalFetch = globalThis.fetch;
+globalThis.fetch = (input: any, init?: any) => {
+  try {
+    const url = typeof input === 'string' ? input : (input?.url ?? '');
+    const headers: Record<string, string> = { ...(init?.headers || {}) };
+    if (!('accept-encoding' in Object.keys(headers))) {
+      headers['accept-encoding'] = 'identity';
+    }
+    const nextInit = { ...init, headers };
+    // Temporary debug logging for facilitator calls
+    if (typeof url === 'string' && url.includes('x402')) {
+      console.log('[x402] Facilitator request', {
+        url,
+        method: (nextInit as any)?.method || 'GET',
+        headers: {
+          'accept-encoding': headers['accept-encoding'],
+          'content-type': headers['content-type'],
+          'content-length': headers['content-length'],
+        },
+      });
+    }
+    return originalFetch(input as any, nextInit as any)
+      .then((resp: any) => {
+        try {
+          if (typeof url === 'string' && url.includes('x402')) {
+            console.log('[x402] Facilitator response', {
+              url,
+              status: resp?.status,
+              headers: {
+                'content-length': resp?.headers?.get?.('content-length'),
+                'content-encoding': resp?.headers?.get?.('content-encoding'),
+                'content-type': resp?.headers?.get?.('content-type'),
+              },
+            });
+          }
+        } catch {}
+        return resp;
+      })
+      .catch((err: any) => {
+        try {
+          if (typeof url === 'string' && url.includes('x402')) {
+            console.log('[x402] Facilitator error', { url, error: String(err?.message || err) });
+          }
+        } catch {}
+        throw err;
+      });
+  } catch (e) {
+    return originalFetch(input as any, init as any);
+  }
+};
 const app = express();
 // Centralized security and static handling
 applySecurity(app);
@@ -107,6 +164,31 @@ async function setupX402ForLocalEndpoints(app: express.Express): Promise<void> {
   if (protectedCount === 0) {
     console.warn('x402: No endpoints detected in routes/endpoint or X402_PROTECTED_PATHS; no routes will be protected');
   }
+  // Temporary debug logging for /api requests and responses
+  app.use((req, res, next) => {
+    if (req.path.startsWith('/api')) {
+      const start = Date.now();
+      const xPayment = req.get('X-PAYMENT');
+      console.log('[x402] Incoming API request', {
+        method: req.method,
+        url: req.originalUrl,
+        hasXPayment: !!xPayment,
+        xPaymentLength: xPayment ? xPayment.length : 0,
+      });
+      res.on('finish', () => {
+        const durationMs = Date.now() - start;
+        const headers = res.getHeaders();
+        console.log('[x402] API response', {
+          status: res.statusCode,
+          durationMs,
+          'x-payment-request': headers['x-payment-request'],
+          'x-payment-response': headers['x-payment-response'],
+          'x-payment': headers['x-payment'],
+        });
+      });
+    }
+    next();
+  });
   app.use(paymentMiddleware(receiverAddr, protectedRoutes, options));
   console.log(`x402 paywall enabled: ${protectedCount} protected routes [${ids.join(', ') || 'none'}], receiver=${receiverAddr}, network=${resolvedNetwork}`);
 }
@@ -160,6 +242,10 @@ async function autoRegisterAgentEndpoints(app: express.Express): Promise<void> {
 async function bootstrap() {
   await setupX402ForLocalEndpoints(app);
   await autoRegisterAgentEndpoints(app);
+  // Manual registration fallback in dev: ensure handlers exist
+  try { registerAgent1Endpoint(app); } catch (e: any) { console.warn('manual register agent1 failed:', e?.message || e); }
+  try { registerAgent2Endpoint(app); } catch (e: any) { console.warn('manual register agent2 failed:', e?.message || e); }
+  try { registerAgent3Endpoint(app); } catch (e: any) { console.warn('manual register agent3 failed:', e?.message || e); }
   // Health routes
   registerHealthRoutes(app);
   // Agent routes (list and detail)
