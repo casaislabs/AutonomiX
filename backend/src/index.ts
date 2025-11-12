@@ -29,13 +29,9 @@ globalThis.fetch = (input: any, init?: any) => {
     const isFacilitator = typeof url === 'string' && /x402\.org\/facilitator/i.test(url);
     // When posting JSON to facilitator, ensure deterministic headers and duplex
     if (isFacilitator && method !== 'GET' && typeof init?.body === 'string') {
+      // Let Undici calculate content-length automatically for JSON bodies
       if (!headers.has('content-type')) headers.set('content-type', 'application/json');
-      if (!headers.has('content-length')) {
-        try {
-          const len = Buffer.byteLength(init!.body as string, 'utf8');
-          headers.set('content-length', String(len));
-        } catch {}
-      }
+      // Ensure duplex is set for streaming semantics expected by Undici
       if (!(init as any)?.duplex) {
         (init as any) = { ...(init || {}), duplex: 'half' };
       }
@@ -210,7 +206,7 @@ async function setupX402ForLocalEndpoints(app: express.Express): Promise<void> {
 }
 
 // Auto registration of endpoints in routes/endpoint
-async function autoRegisterAgentEndpoints(app: express.Express): Promise<void> {
+async function autoRegisterAgentEndpoints(app: express.Express): Promise<number> {
   const distEndpointsDir = path.join(__dirname, 'routes', 'endpoint');
   const srcEndpointsDir = path.join(__dirname, '..', 'src', 'routes', 'endpoint');
   // In production (running compiled code from dist), avoid importing TS from src
@@ -253,15 +249,18 @@ async function autoRegisterAgentEndpoints(app: express.Express): Promise<void> {
     }
   }
   console.log(`Endpoint registration completed: ${registered} files registered`);
+  return registered;
 }
 
 async function bootstrap() {
   await setupX402ForLocalEndpoints(app);
-  await autoRegisterAgentEndpoints(app);
-  // Manual registration fallback in dev: ensure handlers exist
-  try { registerAgent1Endpoint(app); } catch (e: any) { console.warn('manual register agent1 failed:', e?.message || e); }
-  try { registerAgent2Endpoint(app); } catch (e: any) { console.warn('manual register agent2 failed:', e?.message || e); }
-  try { registerAgent3Endpoint(app); } catch (e: any) { console.warn('manual register agent3 failed:', e?.message || e); }
+  const registeredCount = await autoRegisterAgentEndpoints(app);
+  // Manual registration fallback only if auto-registration found none (dev safety)
+  if (registeredCount === 0) {
+    try { registerAgent1Endpoint(app); } catch (e: any) { console.warn('manual register agent1 failed:', e?.message || e); }
+    try { registerAgent2Endpoint(app); } catch (e: any) { console.warn('manual register agent2 failed:', e?.message || e); }
+    try { registerAgent3Endpoint(app); } catch (e: any) { console.warn('manual register agent3 failed:', e?.message || e); }
+  }
   // Health routes
   registerHealthRoutes(app);
   // Agent routes (list and detail)
