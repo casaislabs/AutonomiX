@@ -12,7 +12,9 @@ export function applySecurity(app: Express): Express {
   // Route-specific CORS:
   // - Public: allow any origin without credentials for read endpoints (agents/metadata/health)
   // - Private: restrict to allowed origins with credentials for /api/*
-  const allowedOrigins = [origin, 'http://localhost:5173'].filter(Boolean)
+  const extraOriginsRaw = String(process.env.FRONTEND_ORIGINS || '').trim()
+  const extraOrigins = extraOriginsRaw ? extraOriginsRaw.split(',').map(s => s.trim()).filter(Boolean) : []
+  const allowedOrigins = [origin, 'http://localhost:5173', ...extraOrigins].filter(Boolean)
   const corsOrigin = isDev
     ? true
     : (requestOrigin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
@@ -25,7 +27,11 @@ export function applySecurity(app: Express): Express {
     origin: corsOrigin,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    // Reflect requested headers to avoid preflight failures from custom headers
+    // (leave undefined so the cors middleware uses Access-Control-Request-Headers)
+    allowedHeaders: undefined,
+    // Expose payment headers so the frontend can read x402 payment info
+    exposedHeaders: ['x-payment-request', 'x-payment-response'],
   })
   // Public routes (read-only)
   app.use('/health', publicCors)
