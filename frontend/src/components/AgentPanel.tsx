@@ -28,9 +28,9 @@ export function AgentPanel() {
     () => apiBaseEnv || (window as any)?.__BACKEND_URL__ || 'http://localhost:3001',
     [apiBaseEnv]
   )
-  // Temporary debug log: effective API base
+  // No debug logging in production
   useEffect(() => {
-    console.log('[x402] Frontend config', { apiBase, apiBaseEnv, injected: (window as any)?.__BACKEND_URL__ })
+    // intentionally blank
   }, [apiBase, apiBaseEnv])
 
   // Agents list state
@@ -47,9 +47,7 @@ export function AgentPanel() {
       setLoadingAgents(true)
       setAgentsError('')
       try {
-        console.log('[x402] Fetch agents list', { url: `${apiBase}/agents` })
         const resp = await fetch(`${apiBase}/agents`)
-        console.log('[x402] Agents response', { status: resp.status })
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
         const data = await resp.json()
         if (!cancelled) setAgents((data.items || []).map((it: any) => ({
@@ -82,7 +80,7 @@ export function AgentPanel() {
       const data = await resp.json()
       setAgents((prev) => prev.map((a) => (a.id === id ? { ...a, ...data } : a)))
     } catch (e: any) {
-      console.error('Failed to refresh agent', id, e?.message || e)
+      // silently handle refresh errors in production
     }
   }
 
@@ -96,38 +94,16 @@ export function AgentPanel() {
       // Resolve endpoint: use stored path or fallback to /api/agent{id}
       const ep = (a.endpoint?.trim() || `/api/agent${a.id}`)
       const url = ep.startsWith('http') ? ep : `${apiBase}${ep}`
-      console.log('[x402] Interaction start', {
-        url,
-        method: 'GET',
-        apiBase,
-        address,
-        chainId,
-      })
-      const resp = await fetchWithPayment(url, { method: 'GET' } as any)
-      console.log('[x402] Interaction response', {
-        status: resp.status,
-        headers: {
-          'x-payment-request': resp.headers.get('x-payment-request'),
-          'x-payment-response': resp.headers.get('x-payment-response'),
-          'x-payment': resp.headers.get('x-payment'),
-        }
-      })
-      const data = await resp.json().catch(() => ({}))
+        const resp = await fetchWithPayment(url, { method: 'GET' } as any)
+        const data = await resp.json().catch(() => ({}))
       // Optional: decode payment response if present
       const xPayResp = resp.headers.get('x-payment-response')
       const paymentInfo = xPayResp ? decodeXPaymentResponse(xPayResp) : undefined
-      if (paymentInfo) {
-        console.log('[x402] Decoded payment', {
-          txHash: (paymentInfo as any)?.txHash,
-          chainId: (paymentInfo as any)?.chainId,
-          amount: (paymentInfo as any)?.amount,
-        })
-      }
+      // no payment debug logs in production
       setInteract((prev) => ({ ...prev, [a.id]: { loading: false, response: data, payment: paymentInfo } }))
       // After backend confirms the tx, refresh agent data in the list
       await refreshAgent(a.id)
     } catch (e: any) {
-      console.error('[x402] Interaction error', { id: a.id, message: e?.message || String(e) })
       setInteract((prev) => ({ ...prev, [a.id]: { loading: false, error: e?.message || 'Error' } }))
     }
   }

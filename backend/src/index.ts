@@ -37,41 +37,13 @@ globalThis.fetch = (input: any, init?: any) => {
       }
     }
     const nextInit = { ...(init || {}), headers };
-    // Temporary debug logging for facilitator calls
-    if (isFacilitator) {
-      console.log('[x402] Facilitator request', {
-        url,
-        method,
-        headers: {
-          'accept-encoding': headers.get('accept-encoding') ?? undefined,
-          'content-type': headers.get('content-type') ?? undefined,
-          'content-length': headers.get('content-length') ?? undefined,
-        },
-      });
-    }
+    // No debug logging for facilitator calls in production
     return originalFetch(input as any, nextInit as any)
       .then((resp: any) => {
-        try {
-          if (isFacilitator) {
-            console.log('[x402] Facilitator response', {
-              url,
-              status: resp?.status,
-              headers: {
-                'content-length': resp?.headers?.get?.('content-length'),
-                'content-encoding': resp?.headers?.get?.('content-encoding'),
-                'content-type': resp?.headers?.get?.('content-type'),
-              },
-            });
-          }
-        } catch {}
         return resp;
       })
       .catch((err: any) => {
-        try {
-          if (isFacilitator) {
-            console.log('[x402] Facilitator error', { url, error: String(err?.message || err) });
-          }
-        } catch {}
+        // No facilitator error debug logging in production
         throw err;
       });
   } catch (e) {
@@ -176,33 +148,8 @@ async function setupX402ForLocalEndpoints(app: express.Express): Promise<void> {
   if (protectedCount === 0) {
     console.warn('x402: No endpoints detected in routes/endpoint or X402_PROTECTED_PATHS; no routes will be protected');
   }
-  // Temporary debug logging for /api requests and responses
-  app.use((req, res, next) => {
-    if (req.path.startsWith('/api')) {
-      const start = Date.now();
-      const xPayment = req.get('X-PAYMENT');
-      console.log('[x402] Incoming API request', {
-        method: req.method,
-        url: req.originalUrl,
-        hasXPayment: !!xPayment,
-        xPaymentLength: xPayment ? xPayment.length : 0,
-      });
-      res.on('finish', () => {
-        const durationMs = Date.now() - start;
-        const headers = res.getHeaders();
-        console.log('[x402] API response', {
-          status: res.statusCode,
-          durationMs,
-          'x-payment-request': headers['x-payment-request'],
-          'x-payment-response': headers['x-payment-response'],
-          'x-payment': headers['x-payment'],
-        });
-      });
-    }
-    next();
-  });
   app.use(paymentMiddleware(receiverAddr, protectedRoutes, options));
-  console.log(`x402 paywall enabled: ${protectedCount} protected routes [${ids.join(', ') || 'none'}], receiver=${receiverAddr}, network=${resolvedNetwork}`);
+  // x402 paywall configured
 }
 
 // Auto registration of endpoints in routes/endpoint
@@ -248,7 +195,7 @@ async function autoRegisterAgentEndpoints(app: express.Express): Promise<number>
       // continue with next directory
     }
   }
-  console.log(`Endpoint registration completed: ${registered} files registered`);
+  // endpoint registration completed
   return registered;
 }
 
@@ -270,7 +217,7 @@ async function bootstrap() {
 
   const host = process.env.HOST || '0.0.0.0';
   app.listen(port, host, () => {
-    console.log(`API at http://${host}:${port}`);
+    console.log(`API listening on http://${host}:${port}`);
   });
 }
 

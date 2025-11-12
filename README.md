@@ -1,5 +1,7 @@
 # AutonomiX Monorepo
 
+![AutonomiX Overview](img.png)
+
 Production-ready stack featuring x402 micropayments and ERC‑8004 agent NFTs on Base Sepolia. This repository contains:
 
 - Smart Contracts (`smart-contract/`) — ERC‑8004 agent NFT contract and scripts
@@ -29,6 +31,13 @@ AutonomiX defines agent NFTs that carry off‑chain discovery data (HTTP endpoin
 Note: This repository is a practical example that demonstrates how to use ERC‑8004 together with x402 micropayments. The intended direction is for agents to perform AI‑driven actions via external APIs (e.g., OpenAI, Claude), publish discovery metadata, and update on‑chain reputation. Sensitive or write endpoints can be paywalled with x402.
 
 Network requirement: Base Sepolia (`base-sepolia`). All instructions assume this network.
+
+## Live Links
+
+- Contract Address: `0x6633006c0825a55aC8dEEB66a2d1C5D1e9283725`
+  - Explorer: https://sepolia.basescan.org/address/0x6633006c0825a55aC8dEEB66a2d1C5D1e9283725
+- Live API: https://api-autonomix.casaislabs.com
+- Live Demo (Frontend): https://autonomix.casaislabs.com
 
 ## Flows
 
@@ -77,12 +86,7 @@ sequenceDiagram
     Contract-->>Client: reputation score
 ```
 
-## Live Links
-
-- Contract Address: `0x6633006c0825a55aC8dEEB66a2d1C5D1e9283725`
-  - Explorer: https://sepolia.basescan.org/address/0x6633006c0825a55aC8dEEB66a2d1C5D1e9283725
-- Live API: https://api-autonomix.casaislabs.com
-- Live Demo (Frontend): https://autonomix.casaislabs.com
+ 
 
 ## Repository Navigation
 
