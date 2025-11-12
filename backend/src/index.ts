@@ -15,32 +15,48 @@ import { registerAgent2Endpoint } from './routes/endpoint/agent2.js';
 import { registerAgent3Endpoint } from './routes/endpoint/agent3.js';
 
 // Hardening: ensure Node's global fetch uses identity encoding for outbound requests
-// This mitigates rare proxies that return mismatched Content-Length when compressing.
+// Preserve original headers; stabilize facilitator requests to avoid length mismatches.
 const originalFetch = globalThis.fetch;
 globalThis.fetch = (input: any, init?: any) => {
   try {
     const url = typeof input === 'string' ? input : (input?.url ?? '');
-    const headers: Record<string, string> = { ...(init?.headers || {}) };
-    if (!('accept-encoding' in Object.keys(headers))) {
-      headers['accept-encoding'] = 'identity';
+    const originalHeaders = init?.headers;
+    const headers = new Headers(originalHeaders ?? undefined);
+    if (!headers.has('accept-encoding')) {
+      headers.set('accept-encoding', 'identity');
     }
-    const nextInit = { ...init, headers };
+    const method = String((init?.method ?? 'GET')).toUpperCase();
+    const isFacilitator = typeof url === 'string' && /x402\.org\/facilitator/i.test(url);
+    // When posting JSON to facilitator, ensure deterministic headers and duplex
+    if (isFacilitator && method !== 'GET' && typeof init?.body === 'string') {
+      if (!headers.has('content-type')) headers.set('content-type', 'application/json');
+      if (!headers.has('content-length')) {
+        try {
+          const len = Buffer.byteLength(init!.body as string, 'utf8');
+          headers.set('content-length', String(len));
+        } catch {}
+      }
+      if (!(init as any)?.duplex) {
+        (init as any) = { ...(init || {}), duplex: 'half' };
+      }
+    }
+    const nextInit = { ...(init || {}), headers };
     // Temporary debug logging for facilitator calls
-    if (typeof url === 'string' && url.includes('x402')) {
+    if (isFacilitator) {
       console.log('[x402] Facilitator request', {
         url,
-        method: (nextInit as any)?.method || 'GET',
+        method,
         headers: {
-          'accept-encoding': headers['accept-encoding'],
-          'content-type': headers['content-type'],
-          'content-length': headers['content-length'],
+          'accept-encoding': headers.get('accept-encoding') ?? undefined,
+          'content-type': headers.get('content-type') ?? undefined,
+          'content-length': headers.get('content-length') ?? undefined,
         },
       });
     }
     return originalFetch(input as any, nextInit as any)
       .then((resp: any) => {
         try {
-          if (typeof url === 'string' && url.includes('x402')) {
+          if (isFacilitator) {
             console.log('[x402] Facilitator response', {
               url,
               status: resp?.status,
@@ -56,7 +72,7 @@ globalThis.fetch = (input: any, init?: any) => {
       })
       .catch((err: any) => {
         try {
-          if (typeof url === 'string' && url.includes('x402')) {
+          if (isFacilitator) {
             console.log('[x402] Facilitator error', { url, error: String(err?.message || err) });
           }
         } catch {}
