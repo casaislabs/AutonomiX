@@ -31,7 +31,7 @@ export function applySecurity(app: Express): Express {
     // (leave undefined so the cors middleware uses Access-Control-Request-Headers)
     allowedHeaders: undefined,
     // Expose payment headers so the frontend can read x402 payment info
-    exposedHeaders: ['x-payment-request', 'x-payment-response'],
+    exposedHeaders: ['x-payment-request', 'x-payment-response', 'x-payment'],
   })
   // Public routes (read-only)
   app.use('/health', publicCors)
