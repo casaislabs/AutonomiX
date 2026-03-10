@@ -12,6 +12,7 @@ Production‑ready Express.js API that serves ERC‑721 metadata and images for 
 - [Environment](#environment)
 - [Setup](#setup)
 - [Development](#development)
+- [Docker Deployment](#docker-deployment)
 - [Endpoints](#endpoints)
 - [Paywall x402](#paywall-x402)
 - [Metadata & Images](#metadata--images)
@@ -92,6 +93,68 @@ npm run dev
 ```
 
 By default, the API listens on `http://0.0.0.0:3000` and enforces CORS based on `FRONTEND_ORIGIN`.
+
+## Docker Deployment
+
+The repository includes production-oriented container files:
+- Backend image definition: `backend/Dockerfile` (multi-stage, Node 20, non-root runtime user).
+- Build context exclusions: `backend/.dockerignore`.
+- Deploy compose stack: `docker-compose.yml` at repository root.
+
+### 1) Prepare environment
+
+Create a root `.env` file next to `docker-compose.yml` and provide runtime variables (same keys used by `src/config.ts`):
+
+```
+PORT=3000
+HOST=0.0.0.0
+FRONTEND_ORIGIN=https://your-frontend.example.com
+RPC_URL=https://sepolia.base.org
+AGENT_ADDRESS=0x...
+ADMIN_PRIVATE_KEY=0x...
+X402_RECEIVER_ADDRESS=0x...
+X402_NETWORK=base-sepolia
+X402_PRICE_USD=$0.001
+X402_FACILITATOR_URL=https://x402.org/facilitator
+MAX_IMAGE_BYTES=1048576
+CACHE_TTL_MS=60000
+```
+
+Notes:
+- `ADMIN_PRIVATE_KEY` is optional unless you need write operations (e.g., reputation updates on `/api/agent<ID>`).
+- The compose service binds the API only to loopback by default: `127.0.0.1:3001:3000`.
+
+### 2) Build and start
+
+Run from repository root:
+
+```
+docker compose config
+docker compose build --no-cache backend
+docker compose up -d backend
+```
+
+### 3) Validate health and endpoints
+
+```
+docker compose ps
+docker compose logs --tail=100 backend
+curl -i http://127.0.0.1:3001/health
+curl -i http://127.0.0.1:3001/metadata/agent1.json
+curl -I http://127.0.0.1:3001/images/agent1.svg
+curl -i http://127.0.0.1:3001/agents
+```
+
+Expected behavior:
+- Container status becomes `healthy`.
+- `/health` returns `200`.
+- Static metadata/images are served from `public/metadata` and `public/images`.
+
+### 4) Stop service
+
+```
+docker compose down
+```
 
 ## Endpoints
 
